@@ -2,8 +2,25 @@ import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import { Player, QueryType } from 'discord-player';
 import { YoutubeiExtractor } from 'discord-player-youtubei';
 import dotenv from 'dotenv';
+import http from 'http';
 
 dotenv.config();
+
+// Crear servidor HTTP simple para que Render no mate el proceso
+const PORT = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+        status: 'online',
+        bot: client.user?.tag || 'connecting...',
+        uptime: process.uptime(),
+        servers: client.guilds.cache.size
+    }));
+});
+
+server.listen(PORT, () => {
+    console.log(`🌐 Health check server running on port ${PORT}`);
+});
 
 const client = new Client({
     intents: [
@@ -25,7 +42,10 @@ await player.extractors.loadDefault();
 
 client.once('ready', () => {
     console.log(`✅ Bot conectado como ${client.user.tag}`);
+    console.log(`📊 Servidores: ${client.guilds.cache.size}`);
+    console.log(`👥 Usuarios: ${client.users.cache.size}`);
     console.log(`🎵 Sistema de música activado`);
+    console.log(`💚 Bot completamente operacional`);
     client.user.setActivity('!play <canción>', { type: 2 });
 });
 
@@ -49,14 +69,18 @@ client.on('messageCreate', async (message) => {
 
         const query = args.join(' ');
 
+        console.log(`[BUSQUEDA] Usuario: ${message.author.tag} | Query: "${query}"`);
+
         try {
             const searchResult = await player.search(query, {
                 requestedBy: message.author,
                 searchEngine: QueryType.AUTO
             });
 
+            console.log(`[RESULTADO] Encontrado: ${searchResult?.tracks?.length || 0} pistas`);
+
             if (!searchResult || !searchResult.tracks.length) {
-                return message.reply('❌ No se encontró nada');
+                return message.reply(`❌ **No se encontró nada**\n\n**Búsqueda:** \`${query}\`\n**Intenta con:**\n- Nombre de la canción y artista\n- URL directa de YouTube\n- Buscar algo más específico`);
             }
 
             const queue = player.nodes.create(message.guild, {
@@ -97,8 +121,21 @@ client.on('messageCreate', async (message) => {
             message.reply({ embeds: [embed] });
 
         } catch (error) {
-            console.error(error);
-            message.reply('❌ Error al reproducir la canción');
+            console.error('[ERROR REPRODUCCION]', error);
+
+            let errorMsg = '❌ **Error al reproducir**\n\n';
+
+            if (error.message?.includes('Sign in to confirm')) {
+                errorMsg += '**Causa:** YouTube está bloqueando el acceso\n**Solución:** Intenta con otra canción o URL diferente';
+            } else if (error.message?.includes('video unavailable')) {
+                errorMsg += '**Causa:** Video no disponible o privado\n**Solución:** Verifica que el video sea público';
+            } else if (error.message?.includes('No extractor')) {
+                errorMsg += '**Causa:** No se pudo extraer el audio\n**Solución:** Intenta con un video diferente';
+            } else {
+                errorMsg += `**Error:** \`${error.message}\`\n**Query:** \`${query}\`\n\nIntenta con:\n- Otra URL de YouTube\n- Buscar por nombre en vez de URL\n- Un video diferente`;
+            }
+
+            message.reply(errorMsg);
         }
     }
 
