@@ -23,7 +23,7 @@ const player = new Player(client, {
 // SOLO registrar YoutubeiExtractor (evita ytdl-core completamente)
 await player.extractors.register(YoutubeiExtractor, {
     streamOptions: {
-        useClient: ['ANDROID', 'WEB'], // Múltiples clientes para evitar bloqueos
+        useClient: 'ANDROID', // Cliente Android, más estable
         highWaterMark: 1 << 25
     }
 });
