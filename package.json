@@ -23,7 +23,7 @@
   "homepage": "https://github.com/DriifterSelf/discord-music-bot#readme",
   "dependencies": {
     "discord.js": "^14.14.1",
-    "discord-player": "^6.6.7",
+    "discord-player": "^7.1.0",
     "@discord-player/extractor": "^4.4.7",
     "dotenv": "^16.4.1",
     "mediaplex": "^0.0.9"
