@@ -160,11 +160,33 @@ npm start
 
 <div align="center">
 
-### Embed de "Reproduciendo"
-<img src="https://via.placeholder.com/500x200/0a0a0a/00ff9f?text=%F0%9F%8E%B5+Reproduciendo%0A%0ACancion+-+Artista" alt="Playing embed preview" />
+### Comandos en acción
 
-### Cola de reproducción
-<img src="https://via.placeholder.com/500x250/0a0a0a/00ff9f?text=%F0%9F%93%9C+Cola+de+reproducci%C3%B3n%0A%0A1.+Cancion+1%0A2.+Cancion+2%0A3.+Cancion+3" alt="Queue preview" />
+```
+Usuario: !play cyberpunk music
+
+🎵 Agregado a la cola
+━━━━━━━━━━━━━━━━━━━━━
+Cyberpunk 2077 - The Rebel Path
+Marcin Przybyłowicz
+
+Solicitado por DriifterSelf
+```
+
+```
+Usuario: !queue
+
+📜 Cola de reproducción
+━━━━━━━━━━━━━━━━━━━━━
+
+Reproduciendo:
+🎵 Cyberpunk 2077 - The Rebel Path
+
+Siguiente:
+1. HEALTH - Major Crimes
+2. Run The Jewels - No Save Point
+3. Grimes - 4ÆM
+```
 
 </div>
 
@@ -233,14 +255,122 @@ if (!message.content.startsWith('!')) return;
 
 ---
 
-## 📝 To-Do
+## 🗺️ Roadmap
 
-- [ ] Sistema de favoritos por usuario
-- [ ] Comandos slash (/)
-- [ ] Panel web de control
-- [ ] Sistema de DJ roles
-- [ ] Ecualizador personalizable
-- [ ] Letras de canciones en tiempo real
+<details open>
+<summary><b>📍 Versión Actual: v1.0.0 - Core Release</b></summary>
+
+### ✅ Funcionalidades Base
+- ✅ Reproducción desde YouTube/YouTube Music
+- ✅ Sistema de cola
+- ✅ Comandos básicos (play, pause, skip, stop)
+- ✅ Embeds visuales cyberpunk
+- ✅ Control de volumen
+- ✅ Auto-disconnect
+- ✅ Soporte para playlists
+
+</details>
+
+<details>
+<summary><b>🚀 v1.1.0 - Enhanced Commands (Próximamente)</b></summary>
+
+### 🎯 Comandos Modernos
+- [ ] **Slash Commands (/)** - Migración completa a comandos slash
+- [ ] **Autocompletar** - Sugerencias al escribir comandos
+- [ ] **Botones interactivos** - Controles con botones (▶️ ⏸️ ⏭️ 🔀 🔁)
+- [ ] **Menús de selección** - Elegir canciones de búsquedas múltiples
+
+### 🎵 Audio Mejorado
+- [ ] **Ecualizador** - Presets: Bass Boost, Nightcore, Vaporwave, 8D
+- [ ] **Filtros de audio** - Reverb, Echo, Distorsión
+- [ ] **Audio normalización** - Volumen consistente entre canciones
+
+</details>
+
+<details>
+<summary><b>💎 v1.2.0 - User Experience (Q1 2025)</b></summary>
+
+### 👤 Features de Usuario
+- [ ] **Sistema de favoritos** - Guardar canciones favoritas por usuario
+- [ ] **Playlists personales** - Crear y gestionar playlists propias
+- [ ] **Historial de reproducción** - Ver últimas 50 canciones reproducidas
+- [ ] **Estadísticas personales** - Top canciones, artistas, tiempo escuchado
+
+### 🎨 Personalización
+- [ ] **Temas de colores** - Múltiples temas para embeds
+- [ ] **Mensajes personalizables** - Customizar respuestas del bot
+- [ ] **Idiomas** - Soporte multi-idioma (EN, ES, PT)
+
+</details>
+
+<details>
+<summary><b>🎭 v1.3.0 - Social & Permissions (Q2 2025)</b></summary>
+
+### 🎪 Features Sociales
+- [ ] **Sistema de DJ Roles** - Permisos especiales para DJs
+- [ ] **Votación para skip** - Skip democrático con votos
+- [ ] **Modo de fiesta** - Todos pueden agregar canciones
+- [ ] **Request queue** - Cola de solicitudes moderada
+
+### 🔒 Permisos Avanzados
+- [ ] **Whitelist/Blacklist** - Usuarios permitidos/bloqueados
+- [ ] **Límite de canciones por usuario** - Max X canciones en cola
+- [ ] **Cooldowns personalizables** - Tiempo entre comandos
+
+</details>
+
+<details>
+<summary><b>🌐 v2.0.0 - Web Dashboard (Q3 2025)</b></summary>
+
+### 💻 Panel Web
+- [ ] **Dashboard completo** - Control desde navegador
+- [ ] **Gestión de servidores** - Configurar múltiples servers
+- [ ] **Estadísticas avanzadas** - Gráficos de uso y popularidad
+- [ ] **Queue management** - Ver y editar cola desde web
+- [ ] **Login con Discord OAuth** - Autenticación segura
+
+### 📊 Analytics
+- [ ] **Top canciones globales** - Ranking de más reproducidas
+- [ ] **Métricas de uso** - Uptime, comandos ejecutados, etc.
+- [ ] **Exportar datos** - CSV/JSON de estadísticas
+
+</details>
+
+<details>
+<summary><b>🎼 v2.1.0 - Advanced Features (Q4 2025)</b></summary>
+
+### 🎤 Contenido Extendido
+- [ ] **Letras en tiempo real** - Mostrar lyrics sincronizadas
+- [ ] **Información de artistas** - Bio, discografía, links
+- [ ] **Radio mode** - Reproducción continua basada en gustos
+- [ ] **Crossfade** - Transición suave entre canciones
+
+### 🤖 Inteligencia
+- [ ] **Recomendaciones AI** - Sugerencias personalizadas
+- [ ] **Detección de duplicados** - Evitar canciones repetidas
+- [ ] **Smart shuffle** - Mezcla inteligente de géneros
+- [ ] **Auto-DJ mode** - Bot selecciona música automáticamente
+
+</details>
+
+<details>
+<summary><b>🔮 Future Ideas (Sin fecha)</b></summary>
+
+### 💡 Conceptos Exploratorios
+- [ ] **Integración con streaming** - SoundCloud, Bandcamp, Deezer
+- [ ] **Voice effects** - Modulación de voz en canales
+- [ ] **Karaoke mode** - Versiones instrumentales
+- [ ] **Collaborative playlists** - Playlists comunitarias
+- [ ] **Music trivia/quizzes** - Juegos de adivinar canciones
+- [ ] **Reacciones a música** - Comandos activados por reacciones
+- [ ] **Sincronización multi-servidor** - Misma música en múltiples servers
+- [ ] **API pública** - Para que otros desarrollen con el bot
+
+</details>
+
+### 💬 ¿Tienes ideas?
+
+¿Quieres sugerir una feature? [Abre un issue](https://github.com/DriifterSelf/discord-music-bot/issues/new) y cuéntanos tu idea
 
 ---
 
