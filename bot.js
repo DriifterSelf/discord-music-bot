@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
-import { Player, QueryType } from 'discord-player';
-import { YoutubeiExtractor } from 'discord-player-youtubei';
+import { Manager } from 'erela.js';
 import dotenv from 'dotenv';
 import http from 'http';
 
@@ -15,16 +14,46 @@ const client = new Client({
     ],
 });
 
-// Inicializar el reproductor SIN ytdl
-const player = new Player(client, {
-    skipFFmpeg: false,
+// Lavalink Manager
+const manager = new Manager({
+    nodes: [{
+        host: process.env.LAVALINK_HOST || 'localhost',
+        port: parseInt(process.env.LAVALINK_PORT) || 2333,
+        password: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
+        secure: process.env.LAVALINK_SECURE === 'true'
+    }],
+    send: (id, payload) => {
+        const guild = client.guilds.cache.get(id);
+        if (guild) guild.shard.send(payload);
+    }
 });
 
-// Registrar YoutubeiExtractor (usa youtubei.js para búsqueda Y streaming)
-await player.extractors.register(YoutubeiExtractor, {});
+// Event listeners de Lavalink
+manager.on('nodeConnect', node => {
+    console.log(`🔗 Lavalink node conectado: ${node.options.host}`);
+});
 
-console.log('🎵 Extractor configurado: YoutubeiExtractor (búsqueda + streaming integrados)');
-console.log('✅ Discord Player configurado correctamente');
+manager.on('nodeError', (node, error) => {
+    console.error(`❌ Error en Lavalink node ${node.options.host}:`, error.message);
+});
+
+manager.on('trackStart', (player, track) => {
+    const channel = client.channels.cache.get(player.textChannel);
+    const embed = new EmbedBuilder()
+        .setColor('#00ff9f')
+        .setTitle('▶️ Reproduciendo')
+        .setDescription(`**${track.title}**\n${track.author}`)
+        .setThumbnail(track.thumbnail)
+        .setFooter({ text: `Solicitado por ${track.requester.tag}` });
+
+    channel?.send({ embeds: [embed] });
+});
+
+manager.on('queueEnd', (player) => {
+    const channel = client.channels.cache.get(player.textChannel);
+    channel?.send('✅ Cola finalizada, saliendo del canal de voz');
+    player.destroy();
+});
 
 // Crear servidor HTTP simple para que Render no mate el proceso
 const PORT = process.env.PORT || 3000;
@@ -34,7 +63,11 @@ const server = http.createServer((req, res) => {
         status: 'online',
         bot: client.user?.tag || 'connecting...',
         uptime: Math.floor(process.uptime()),
-        servers: client.guilds.cache.size
+        servers: client.guilds.cache.size,
+        lavalink: manager.nodes.map(n => ({
+            host: n.options.host,
+            connected: n.connected
+        }))
     }));
 });
 
@@ -46,10 +79,15 @@ client.once('ready', () => {
     console.log(`✅ Bot conectado como ${client.user.tag}`);
     console.log(`📊 Servidores: ${client.guilds.cache.size}`);
     console.log(`👥 Usuarios: ${client.users.cache.size}`);
-    console.log(`🎵 Sistema de música activado`);
-    console.log(`💚 Bot completamente operacional`);
+    console.log(`🎵 Inicializando Lavalink manager...`);
+
+    manager.init(client.user.id);
     client.user.setActivity('!play <canción>', { type: 2 });
+
+    console.log(`💚 Bot completamente operacional`);
 });
+
+client.on('raw', d => manager.updateVoiceState(d));
 
 // Comandos de música
 client.on('messageCreate', async (message) => {
@@ -70,137 +108,123 @@ client.on('messageCreate', async (message) => {
         }
 
         const query = args.join(' ');
-
         console.log(`[BUSQUEDA] Usuario: ${message.author.tag} | Query: "${query}"`);
 
         try {
-            const searchResult = await player.search(query, {
-                requestedBy: message.author,
-                searchEngine: QueryType.YOUTUBE
+            // Crear o obtener player
+            const player = manager.create({
+                guild: message.guild.id,
+                voiceChannel: message.member.voice.channel.id,
+                textChannel: message.channel.id,
+                selfDeafen: true,
+                volume: 80
             });
 
-            console.log(`[RESULTADO] Encontrado: ${searchResult?.tracks?.length || 0} pistas`);
-            if (searchResult?.playlist) {
-                console.log(`[PLAYLIST] ${searchResult.playlist.title}`);
-            }
-            if (searchResult?.tracks?.length > 0) {
-                console.log(`[PRIMERA PISTA] ${searchResult.tracks[0].title} - ${searchResult.tracks[0].url}`);
+            // Conectar si no está conectado
+            if (player.state !== 'CONNECTED') player.connect();
+
+            // Buscar canción
+            const searchQuery = /^https?:\/\//.test(query) ? query : `ytsearch:${query}`;
+            const res = await manager.search(searchQuery, message.author);
+
+            console.log(`[RESULTADO] Encontrado: ${res.tracks.length} pistas`);
+
+            if (res.loadType === 'LOAD_FAILED') {
+                return message.reply('❌ Error al cargar la canción');
             }
 
-            if (!searchResult || !searchResult.tracks.length) {
+            if (res.loadType === 'NO_MATCHES') {
                 return message.reply(`❌ **No se encontró nada**\n\n**Búsqueda:** \`${query}\`\n**Intenta con:**\n- Nombre de la canción y artista\n- URL directa de YouTube\n- Buscar algo más específico`);
             }
 
-            const queue = player.nodes.create(message.guild, {
-                metadata: {
-                    channel: message.channel,
-                    client: message.guild.members.me,
-                    requestedBy: message.user
-                },
-                selfDeaf: true,
-                volume: 80,
-                leaveOnEmpty: true,
-                leaveOnEmptyCooldown: 300000,
-                leaveOnEnd: true,
-                leaveOnEndCooldown: 300000,
-            });
+            // Agregar a cola
+            if (res.loadType === 'PLAYLIST_LOADED') {
+                player.queue.add(res.tracks);
+                const embed = new EmbedBuilder()
+                    .setColor('#00ff9f')
+                    .setTitle('🎵 Playlist agregada a la cola')
+                    .setDescription(`**${res.playlist.name}**\n**${res.tracks.length} canciones**`)
+                    .setFooter({ text: `Solicitado por ${message.author.tag}` });
 
-            try {
-                if (!queue.connection) await queue.connect(message.member.voice.channel);
-            } catch {
-                player.nodes.delete(message.guild.id);
-                return message.reply('❌ No pude conectarme al canal de voz');
+                message.reply({ embeds: [embed] });
+            } else {
+                const track = res.tracks[0];
+                player.queue.add(track);
+
+                const embed = new EmbedBuilder()
+                    .setColor('#00ff9f')
+                    .setTitle('🎵 Agregado a la cola')
+                    .setDescription(`**${track.title}**\n${track.author}`)
+                    .setThumbnail(track.thumbnail)
+                    .setFooter({ text: `Solicitado por ${message.author.tag}` });
+
+                message.reply({ embeds: [embed] });
             }
 
-            searchResult.playlist ? queue.addTrack(searchResult.tracks) : queue.addTrack(searchResult.tracks[0]);
-
-            if (!queue.isPlaying()) await queue.node.play();
-
-            const embed = new EmbedBuilder()
-                .setColor('#00ff9f')
-                .setTitle('🎵 Agregado a la cola')
-                .setDescription(searchResult.playlist ?
-                    `**Playlist:** ${searchResult.playlist.title}\n**${searchResult.tracks.length} canciones**` :
-                    `**${searchResult.tracks[0].title}**\n${searchResult.tracks[0].author}`
-                )
-                .setThumbnail(searchResult.tracks[0].thumbnail)
-                .setFooter({ text: `Solicitado por ${message.author.tag}` });
-
-            message.reply({ embeds: [embed] });
+            // Reproducir si no está reproduciendo
+            if (!player.playing && !player.paused) player.play();
 
         } catch (error) {
             console.error('[ERROR REPRODUCCION]', error);
-
-            let errorMsg = '❌ **Error al reproducir**\n\n';
-
-            if (error.message?.includes('Sign in to confirm')) {
-                errorMsg += '**Causa:** YouTube está bloqueando el acceso\n**Solución:** Intenta con otra canción o URL diferente';
-            } else if (error.message?.includes('video unavailable')) {
-                errorMsg += '**Causa:** Video no disponible o privado\n**Solución:** Verifica que el video sea público';
-            } else if (error.message?.includes('No extractor')) {
-                errorMsg += '**Causa:** No se pudo extraer el audio\n**Solución:** Intenta con un video diferente';
-            } else {
-                errorMsg += `**Error:** \`${error.message}\`\n**Query:** \`${query}\`\n\nIntenta con:\n- Otra URL de YouTube\n- Buscar por nombre en vez de URL\n- Un video diferente`;
-            }
-
-            message.reply(errorMsg);
+            message.reply(`❌ **Error al reproducir**\n\n**Error:** \`${error.message}\``);
         }
     }
 
     // !skip
     if (command === 'skip' || command === 's') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue || !queue.isPlaying()) {
+        const player = manager.get(message.guild.id);
+        if (!player || !player.queue.current) {
             return message.reply('❌ No hay nada reproduciéndose');
         }
-        queue.node.skip();
+        player.stop();
         message.reply('⏭️ Canción saltada');
     }
 
     // !stop
     if (command === 'stop') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue) {
+        const player = manager.get(message.guild.id);
+        if (!player) {
             return message.reply('❌ No hay nada reproduciéndose');
         }
-        queue.delete();
+        player.queue.clear();
+        player.destroy();
         message.reply('⏹️ Música detenida y cola limpiada');
     }
 
     // !pause
     if (command === 'pause') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue || !queue.isPlaying()) {
+        const player = manager.get(message.guild.id);
+        if (!player || !player.queue.current) {
             return message.reply('❌ No hay nada reproduciéndose');
         }
-        queue.node.pause();
+        player.pause(true);
         message.reply('⏸️ Pausado');
     }
 
     // !resume
     if (command === 'resume' || command === 'r') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue) {
+        const player = manager.get(message.guild.id);
+        if (!player || !player.queue.current) {
             return message.reply('❌ No hay nada en la cola');
         }
-        queue.node.resume();
+        player.pause(false);
         message.reply('▶️ Resumido');
     }
 
     // !queue o !q
     if (command === 'queue' || command === 'q') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue || !queue.tracks.toArray().length) {
+        const player = manager.get(message.guild.id);
+        if (!player || !player.queue.current) {
             return message.reply('❌ La cola está vacía');
         }
 
-        const tracks = queue.tracks.toArray().slice(0, 10);
+        const queue = player.queue;
         const embed = new EmbedBuilder()
             .setColor('#00ff9f')
             .setTitle('📜 Cola de reproducción')
             .setDescription(
-                `**Reproduciendo:**\n${queue.currentTrack.title}\n\n` +
-                `**Siguiente:**\n${tracks.map((track, i) => `${i + 1}. ${track.title}`).join('\n')}`
+                `**Reproduciendo:**\n${queue.current.title}\n\n` +
+                `**Siguiente:**\n${queue.slice(0, 10).map((track, i) => `${i + 1}. ${track.title}`).join('\n') || 'Nada en cola'}`
             );
 
         message.reply({ embeds: [embed] });
@@ -208,29 +232,31 @@ client.on('messageCreate', async (message) => {
 
     // !np (now playing)
     if (command === 'np' || command === 'nowplaying') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue || !queue.currentTrack) {
+        const player = manager.get(message.guild.id);
+        if (!player || !player.queue.current) {
             return message.reply('❌ No hay nada reproduciéndose');
         }
 
-        const track = queue.currentTrack;
-        const progress = queue.node.createProgressBar();
+        const track = player.queue.current;
+        const position = player.position;
+        const duration = track.duration;
+        const bar = createProgressBar(position, duration);
 
         const embed = new EmbedBuilder()
             .setColor('#00ff9f')
             .setTitle('🎵 Reproduciendo ahora')
             .setDescription(`**${track.title}**\n${track.author}`)
             .setThumbnail(track.thumbnail)
-            .addFields({ name: 'Progreso', value: progress })
-            .setFooter({ text: `Solicitado por ${track.requestedBy.tag}` });
+            .addFields({ name: 'Progreso', value: bar })
+            .setFooter({ text: `Solicitado por ${track.requester.tag}` });
 
         message.reply({ embeds: [embed] });
     }
 
     // !volume o !v
     if (command === 'volume' || command === 'v') {
-        const queue = player.nodes.get(message.guild.id);
-        if (!queue) {
+        const player = manager.get(message.guild.id);
+        if (!player) {
             return message.reply('❌ No hay música reproduciéndose');
         }
 
@@ -239,7 +265,7 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ Uso: `!volume <0-100>`');
         }
 
-        queue.node.setVolume(volume);
+        player.setVolume(volume);
         message.reply(`🔊 Volumen establecido a ${volume}%`);
     }
 
@@ -264,29 +290,27 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Event listeners del reproductor
-player.events.on('playerStart', (queue, track) => {
-    const embed = new EmbedBuilder()
-        .setColor('#00ff9f')
-        .setTitle('▶️ Reproduciendo')
-        .setDescription(`**${track.title}**\n${track.author}`)
-        .setThumbnail(track.thumbnail);
+// Helper para crear barra de progreso
+function createProgressBar(current, total) {
+    const percentage = (current / total) * 100;
+    const progress = Math.round((percentage / 100) * 15);
+    const emptyProgress = 15 - progress;
 
-    queue.metadata.channel.send({ embeds: [embed] });
-});
+    const progressText = '▇'.repeat(progress);
+    const emptyProgressText = '—'.repeat(emptyProgress);
 
-player.events.on('audioTrackAdd', (queue, track) => {
-    // Opcional: notificar cuando se agrega una canción
-});
+    return `${formatTime(current)} ${progressText}${emptyProgressText} ${formatTime(total)}`;
+}
 
-player.events.on('error', (queue, error) => {
-    console.error('Error en el reproductor:', error);
-    queue.metadata.channel.send('❌ Ocurrió un error al reproducir la música');
-});
+function formatTime(ms) {
+    const seconds = Math.floor((ms / 1000) % 60);
+    const minutes = Math.floor((ms / (1000 * 60)) % 60);
+    const hours = Math.floor(ms / (1000 * 60 * 60));
 
-player.events.on('playerError', (queue, error) => {
-    console.error('Error en la reproducción:', error);
-    queue.metadata.channel.send('❌ No pude reproducir esta canción');
-});
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
 
 client.login(process.env.DISCORD_TOKEN);
