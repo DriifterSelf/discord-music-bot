@@ -22,8 +22,10 @@ const player = new Player(client, {
 
 // SOLO registrar YoutubeiExtractor (evita ytdl-core completamente)
 await player.extractors.register(YoutubeiExtractor, {
-    // Configuración simplificada - usar valores por defecto
+    // PoToken para evitar bloqueos de YouTube
+    generateWithPoToken: true,
     streamOptions: {
+        useClient: 'WEB', // Requerido para PoToken
         highWaterMark: 1 << 25
     }
 });
