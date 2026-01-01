@@ -266,6 +266,21 @@ Si te gusta este proyecto, considera darle una ⭐
 
 [![GitHub Stars](https://img.shields.io/github/stars/DriifterSelf/discord-music-bot?style=social)](https://github.com/DriifterSelf/discord-music-bot/stargazers)
 
+---
+
+### ☕ Apóyame
+
+Si este bot te ha sido útil y quieres apoyar el desarrollo, puedes invitarme un café:
+
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/drifterself01@gmail.com)
+[![PayPal](https://img.shields.io/badge/Donar%20con-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/paypalme/drifterself01)
+
+**Email PayPal:** `drifterself01@gmail.com`
+
+Toda contribución es apreciada y ayuda a mantener el proyecto activo 💚
+
+---
+
 **[📚 Documentación](./DEPLOYMENT.md)** • **[🐛 Reportar Bug](https://github.com/DriifterSelf/discord-music-bot/issues)** • **[💡 Solicitar Feature](https://github.com/DriifterSelf/discord-music-bot/issues)**
 
 </div>
