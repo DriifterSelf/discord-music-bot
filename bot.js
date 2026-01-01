@@ -6,22 +6,6 @@ import http from 'http';
 
 dotenv.config();
 
-// Crear servidor HTTP simple para que Render no mate el proceso
-const PORT = process.env.PORT || 3000;
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-        status: 'online',
-        bot: client.user?.tag || 'connecting...',
-        uptime: process.uptime(),
-        servers: client.guilds.cache.size
-    }));
-});
-
-server.listen(PORT, () => {
-    console.log(`🌐 Health check server running on port ${PORT}`);
-});
-
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -31,14 +15,39 @@ const client = new Client({
     ],
 });
 
-// Inicializar el reproductor
-const player = new Player(client);
+// Inicializar el reproductor con configuración optimizada
+const player = new Player(client, {
+    ytdlOptions: {
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25
+    }
+});
 
-// Registrar el extractor de YouTube
-await player.extractors.register(YoutubeiExtractor, {});
+// SOLO registrar YoutubeiExtractor (más estable, evita rate limits)
+await player.extractors.register(YoutubeiExtractor, {
+    authentication: process.env.YOUTUBE_COOKIE || undefined,
+    streamOptions: {
+        useClient: 'IOS' // Usa el cliente de iOS, más difícil de bloquear
+    }
+});
 
-// Cargar todos los eventos por defecto
-await player.extractors.loadDefault();
+console.log('🎵 Extractor de YouTube configurado (Youtubei)');
+
+// Crear servidor HTTP simple para que Render no mate el proceso
+const PORT = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+        status: 'online',
+        bot: client.user?.tag || 'connecting...',
+        uptime: Math.floor(process.uptime()),
+        servers: client.guilds.cache.size
+    }));
+});
+
+server.listen(PORT, () => {
+    console.log(`🌐 Health check server running on port ${PORT}`);
+});
 
 client.once('ready', () => {
     console.log(`✅ Bot conectado como ${client.user.tag}`);

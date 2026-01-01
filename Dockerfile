@@ -1,8 +1,8 @@
 # Dockerfile para deployment
 FROM node:20-alpine
 
-# Instalar dependencias necesarias para discord-player
-RUN apk add --no-cache python3 make g++ ffmpeg
+# Instalar dependencias necesarias para discord-player y voice
+RUN apk add --no-cache python3 make g++ ffmpeg libsodium-dev opus-dev
 
 WORKDIR /app
 
