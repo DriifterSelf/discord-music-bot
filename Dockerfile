@@ -1,9 +1,10 @@
 # Dockerfile para deployment
 FROM node:20-alpine
 
-# Instalar dependencias del sistema para compilar librerías nativas
+# Instalar dependencias del sistema para compilar librerías nativas + yt-dlp
 RUN apk add --no-cache \
     python3 \
+    py3-pip \
     make \
     g++ \
     ffmpeg \
@@ -11,7 +12,8 @@ RUN apk add --no-cache \
     opus-dev \
     libtool \
     autoconf \
-    automake
+    automake && \
+    pip3 install --no-cache-dir yt-dlp
 
 WORKDIR /app
 
@@ -26,6 +28,9 @@ RUN npm cache clean --force
 
 # Copiar el código
 COPY . .
+
+# Variables de entorno para discord-player
+ENV DP_FORCE_YTDL_MOD="@distube/ytdl-core"
 
 # Comando para iniciar
 CMD ["node", "bot.js"]

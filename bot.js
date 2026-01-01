@@ -19,10 +19,15 @@ const player = new Player(client, {
     skipFFmpeg: false,
 });
 
-// Cargar extractores por defecto (incluye YouTube con mejor compatibilidad)
+// Cargar extractores por defecto con configuración forzada
+// DP_FORCE_YTDL_MOD en Dockerfile fuerza el uso de @distube/ytdl-core
 await player.extractors.loadDefault();
 
-console.log('🎵 Extractores por defecto cargados (YouTube, Spotify, SoundCloud)');
+// Listar extractores cargados
+const loadedExtractors = player.extractors.store.map(e => e.identifier).join(', ');
+console.log('🎵 Extractores cargados:', loadedExtractors);
+console.log('📦 YTDL Module:', process.env.DP_FORCE_YTDL_MOD || 'default');
+console.log('✅ Discord Player configurado correctamente');
 
 // Crear servidor HTTP simple para que Render no mate el proceso
 const PORT = process.env.PORT || 3000;

@@ -28,12 +28,14 @@
   "dependencies": {
     "@discord-player/extractor": "^4.4.7",
     "@discordjs/opus": "^0.10.0",
+    "@distube/ytdl-core": "^4.14.4",
     "discord-player": "^6.6.7",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.1",
     "libsodium-wrappers": "^0.7.16",
     "mediaplex": "^0.0.9",
     "play-dl": "^1.9.7",
-    "sodium-native": "^5.0.10"
+    "sodium-native": "^5.0.10",
+    "yt-dlp-wrap": "^2.3.10"
   }
 }
