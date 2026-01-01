@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import { Player, QueryType } from 'discord-player';
-import { YoutubeiExtractor } from 'discord-player-youtubei';
 import dotenv from 'dotenv';
 import http from 'http';
 
@@ -20,17 +19,10 @@ const player = new Player(client, {
     skipFFmpeg: false,
 });
 
-// SOLO registrar YoutubeiExtractor (evita ytdl-core completamente)
-await player.extractors.register(YoutubeiExtractor, {
-    // Desactivar JS player, usar cliente ANDROID para streaming
-    disablePlayer: true,
-    streamOptions: {
-        useClient: 'ANDROID', // Cliente ANDROID más estable
-        highWaterMark: 1 << 25
-    }
-});
+// Cargar extractores por defecto (incluye YouTube con mejor compatibilidad)
+await player.extractors.loadDefault();
 
-console.log('🎵 Extractor de YouTube configurado (Youtubei - sin ytdl-core)');
+console.log('🎵 Extractores por defecto cargados (YouTube, Spotify, SoundCloud)');
 
 // Crear servidor HTTP simple para que Render no mate el proceso
 const PORT = process.env.PORT || 3000;
