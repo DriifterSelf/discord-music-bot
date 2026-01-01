@@ -4,7 +4,6 @@ FROM node:20-alpine
 # Instalar dependencias del sistema para compilar librerías nativas + yt-dlp
 RUN apk add --no-cache \
     python3 \
-    py3-pip \
     make \
     g++ \
     ffmpeg \
@@ -12,8 +11,8 @@ RUN apk add --no-cache \
     opus-dev \
     libtool \
     autoconf \
-    automake && \
-    pip3 install --no-cache-dir yt-dlp
+    automake \
+    yt-dlp
 
 WORKDIR /app
 
