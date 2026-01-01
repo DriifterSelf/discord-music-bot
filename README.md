@@ -179,10 +179,6 @@ npm start
 # Requeridas
 DISCORD_TOKEN=tu_token_aqui        # Token del bot
 CLIENT_ID=tu_client_id_aqui        # Client ID de la aplicación
-
-# Opcionales (próximamente)
-SPOTIFY_CLIENT_ID=                 # Para integración con Spotify
-SPOTIFY_CLIENT_SECRET=             # Para integración con Spotify
 ```
 
 </details>
@@ -239,14 +235,12 @@ if (!message.content.startsWith('!')) return;
 
 ## 📝 To-Do
 
-- [ ] Integración con Spotify
 - [ ] Sistema de favoritos por usuario
 - [ ] Comandos slash (/)
 - [ ] Panel web de control
 - [ ] Sistema de DJ roles
 - [ ] Ecualizador personalizable
 - [ ] Letras de canciones en tiempo real
-- [ ] Integración con Helldivers 2 API
 
 ---
 
