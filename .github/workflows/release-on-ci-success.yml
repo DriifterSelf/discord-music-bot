@@ -9,6 +9,9 @@ on:
       - master
       - main
 
+permissions:
+  contents: write
+
 jobs:
   create-release-if-needed:
     name: 🚀 Auto Release
