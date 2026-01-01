@@ -1,0 +1,21 @@
+{
+  "name": "cyberpunk-music-bot",
+  "version": "1.0.0",
+  "description": "Bot de música para Discord con temática cyberpunk",
+  "main": "bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "keywords": ["discord", "music", "bot"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "discord-player": "^6.6.7",
+    "@discord-player/extractor": "^4.4.7",
+    "dotenv": "^16.4.1",
+    "mediaplex": "^0.0.9"
+  }
+}
