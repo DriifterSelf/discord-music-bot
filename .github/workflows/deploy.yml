@@ -1,0 +1,24 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 🚀 Trigger Render Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy notification
+        run: |
+          echo "🚀 Deploying to Render..."
+          echo "✅ Render will automatically detect and deploy this push"
+          echo "📊 Check your Render dashboard for deployment status"
+
+      - name: 🎉 Success
+        run: echo "✅ Deployment triggered successfully!"

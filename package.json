@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node bot.js",
-    "dev": "node --watch bot.js"
+    "dev": "node --watch bot.js",
+    "test": "echo \"✅ No tests configured yet\" && exit 0",
+    "validate": "node --check bot.js"
   },
   "keywords": ["discord", "music", "bot"],
   "author": "DriifterSelf",
