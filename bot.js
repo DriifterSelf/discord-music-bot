@@ -15,23 +15,20 @@ const client = new Client({
     ],
 });
 
-// Inicializar el reproductor con configuración optimizada
+// Inicializar el reproductor SIN ytdl
 const player = new Player(client, {
-    ytdlOptions: {
-        quality: 'highestaudio',
+    skipFFmpeg: false,
+});
+
+// SOLO registrar YoutubeiExtractor (evita ytdl-core completamente)
+await player.extractors.register(YoutubeiExtractor, {
+    streamOptions: {
+        useClient: ['ANDROID', 'WEB'], // Múltiples clientes para evitar bloqueos
         highWaterMark: 1 << 25
     }
 });
 
-// SOLO registrar YoutubeiExtractor (más estable, evita rate limits)
-await player.extractors.register(YoutubeiExtractor, {
-    authentication: process.env.YOUTUBE_COOKIE || undefined,
-    streamOptions: {
-        useClient: 'IOS' // Usa el cliente de iOS, más difícil de bloquear
-    }
-});
-
-console.log('🎵 Extractor de YouTube configurado (Youtubei)');
+console.log('🎵 Extractor de YouTube configurado (Youtubei - sin ytdl-core)');
 
 // Crear servidor HTTP simple para que Render no mate el proceso
 const PORT = process.env.PORT || 3000;
