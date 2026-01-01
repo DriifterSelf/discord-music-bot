@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import { Player, QueryType } from 'discord-player';
+import { YoutubeiExtractor } from 'discord-player-youtubei';
 import dotenv from 'dotenv';
 import http from 'http';
 
@@ -19,14 +20,10 @@ const player = new Player(client, {
     skipFFmpeg: false,
 });
 
-// Cargar extractores por defecto con configuración forzada
-// DP_FORCE_YTDL_MOD en Dockerfile fuerza el uso de @distube/ytdl-core
-await player.extractors.loadDefault();
+// Registrar YoutubeiExtractor (usa youtubei.js para búsqueda Y streaming)
+await player.extractors.register(YoutubeiExtractor, {});
 
-// Listar extractores cargados
-const loadedExtractors = player.extractors.store.map(e => e.identifier).join(', ');
-console.log('🎵 Extractores cargados:', loadedExtractors);
-console.log('📦 YTDL Module:', process.env.DP_FORCE_YTDL_MOD || 'default');
+console.log('🎵 Extractor configurado: YoutubeiExtractor (búsqueda + streaming integrados)');
 console.log('✅ Discord Player configurado correctamente');
 
 // Crear servidor HTTP simple para que Render no mate el proceso
@@ -79,10 +76,16 @@ client.on('messageCreate', async (message) => {
         try {
             const searchResult = await player.search(query, {
                 requestedBy: message.author,
-                searchEngine: QueryType.AUTO
+                searchEngine: QueryType.YOUTUBE
             });
 
             console.log(`[RESULTADO] Encontrado: ${searchResult?.tracks?.length || 0} pistas`);
+            if (searchResult?.playlist) {
+                console.log(`[PLAYLIST] ${searchResult.playlist.title}`);
+            }
+            if (searchResult?.tracks?.length > 0) {
+                console.log(`[PRIMERA PISTA] ${searchResult.tracks[0].title} - ${searchResult.tracks[0].url}`);
+            }
 
             if (!searchResult || !searchResult.tracks.length) {
                 return message.reply(`❌ **No se encontró nada**\n\n**Búsqueda:** \`${query}\`\n**Intenta con:**\n- Nombre de la canción y artista\n- URL directa de YouTube\n- Buscar algo más específico`);
