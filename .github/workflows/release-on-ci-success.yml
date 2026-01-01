@@ -1,0 +1,144 @@
+name: Auto Release on CI Success
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
+    branches:
+      - master
+      - main
+
+jobs:
+  create-release-if-needed:
+    name: 🚀 Auto Release
+    runs-on: ubuntu-latest
+    # Solo si el CI pasó exitosamente
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: 🔍 Check if release needed
+        id: check
+        run: |
+          # Verificar si el último commit ya tiene un tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_COMMIT=$(git rev-parse HEAD)
+          TAG_COMMIT=$(git rev-list -n 1 $LATEST_TAG 2>/dev/null || echo "")
+
+          # Verificar si hay commits de dependabot (no crear release para esos)
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:'%an')
+
+          echo "Latest tag: $LATEST_TAG"
+          echo "Commit author: $COMMIT_AUTHOR"
+
+          if [ "$LATEST_COMMIT" != "$TAG_COMMIT" ] && [ "$COMMIT_AUTHOR" != "dependabot[bot]" ]; then
+            # Contar commits desde el último tag
+            COMMITS_SINCE=$(git rev-list $LATEST_TAG..HEAD --count)
+
+            if [ $COMMITS_SINCE -ge 3 ]; then
+              echo "should_release=true" >> $GITHUB_OUTPUT
+              echo "✅ $COMMITS_SINCE commits since last release, creating new release"
+            else
+              echo "should_release=false" >> $GITHUB_OUTPUT
+              echo "⏭️ Only $COMMITS_SINCE commits, waiting for more changes"
+            fi
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No release needed"
+          fi
+
+      - name: 🏷️ Calculate new version
+        if: steps.check.outputs.should_release == 'true'
+        id: version
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VERSION=${LATEST_TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+
+          # Verificar si hay breaking changes en commits
+          BREAKING=$(git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -i "BREAKING CHANGE" || true)
+          FEAT=$(git log $LATEST_TAG..HEAD --pretty=format:"%s" | grep -i "^feat" || true)
+
+          if [ ! -z "$BREAKING" ]; then
+            # Major version bump
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ ! -z "$FEAT" ]; then
+            # Minor version bump
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            # Patch version bump
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 New version: $NEW_VERSION"
+
+      - name: 📝 Generate changelog
+        if: steps.check.outputs.should_release == 'true'
+        id: changelog
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
+
+          echo "## 🎵 What's Changed" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          # Categorizar commits
+          echo "### ✨ Features" >> CHANGELOG.md
+          git log $LATEST_TAG..HEAD --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --no-merges --grep="^feat" >> CHANGELOG.md || echo "- No new features" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "### 🐛 Bug Fixes" >> CHANGELOG.md
+          git log $LATEST_TAG..HEAD --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --no-merges --grep="^fix" >> CHANGELOG.md || echo "- No bug fixes" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "### 🔧 Chores & Maintenance" >> CHANGELOG.md
+          git log $LATEST_TAG..HEAD --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --no-merges --grep="^chore" >> CHANGELOG.md || echo "- No chores" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "### 📚 Documentation" >> CHANGELOG.md
+          git log $LATEST_TAG..HEAD --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --no-merges --grep="^docs" >> CHANGELOG.md || echo "- No documentation changes" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...${{ steps.version.outputs.new_version }}" >> CHANGELOG.md
+
+          cat CHANGELOG.md
+
+      - name: 🎉 Create Release
+        if: steps.check.outputs.should_release == 'true'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          release_name: 🎵 Cyberpunk Music Bot ${{ steps.version.outputs.new_version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+
+      - name: 📢 Success
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          echo "✅ Release ${{ steps.version.outputs.new_version }} created!"
+          echo "🔗 View at: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.new_version }}"
+
+      - name: ⏭️ Skipped
+        if: steps.check.outputs.should_release != 'true'
+        run: echo "⏭️ Release skipped - not enough changes or already released"

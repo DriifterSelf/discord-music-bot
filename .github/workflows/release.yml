@@ -1,0 +1,124 @@
+name: Create Release
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  # Esperar a que todos los checks pasen
+  wait-for-checks:
+    name: ⏳ Wait for CI Checks
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Check if release is needed
+        id: check
+        run: |
+          # Verificar si el último commit ya tiene un tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_COMMIT=$(git rev-parse HEAD)
+          TAG_COMMIT=$(git rev-list -n 1 $LATEST_TAG 2>/dev/null || echo "")
+
+          echo "Latest tag: $LATEST_TAG"
+          echo "Latest commit: $LATEST_COMMIT"
+          echo "Tag commit: $TAG_COMMIT"
+
+          if [ "$LATEST_COMMIT" != "$TAG_COMMIT" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "✅ New commits detected, release needed"
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No new commits since last release"
+          fi
+
+  # Crear release solo si los checks pasaron
+  create-release:
+    name: 🎉 Create Release
+    runs-on: ubuntu-latest
+    needs: wait-for-checks
+    if: needs.wait-for-checks.outputs.should_release == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 🏷️ Generate version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger con versión específica
+            NEW_VERSION="v${{ github.event.inputs.version }}"
+          else
+            # Auto-increment basado en commits
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            echo "Current version: $LATEST_TAG"
+
+            # Extraer números de versión
+            VERSION=${LATEST_TAG#v}
+            MAJOR=$(echo $VERSION | cut -d. -f1)
+            MINOR=$(echo $VERSION | cut -d. -f2)
+            PATCH=$(echo $VERSION | cut -d. -f3)
+
+            # Auto-increment patch por defecto
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 New version will be: $NEW_VERSION"
+
+      - name: 📝 Generate changelog
+        id: changelog
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
+
+          echo "## 🎵 What's Changed" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          # Commits desde el último tag
+          git log $LATEST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges >> CHANGELOG.md
+
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...${{ steps.version.outputs.new_version }}" >> CHANGELOG.md
+
+          cat CHANGELOG.md
+
+      - name: 🎉 Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          release_name: Release ${{ steps.version.outputs.new_version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+
+      - name: 📢 Release created
+        run: |
+          echo "✅ Release ${{ steps.version.outputs.new_version }} created successfully!"
+          echo "🔗 https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.new_version }}"

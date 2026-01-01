@@ -5,6 +5,7 @@
 ### *Discord bot de música sin anuncios con temática cyberpunk*
 
 [![GitHub Stars](https://img.shields.io/github/stars/DriifterSelf/discord-music-bot?style=for-the-badge&logo=github&color=ff00ff)](https://github.com/DriifterSelf/discord-music-bot/stargazers)
+[![GitHub Release](https://img.shields.io/github/v/release/DriifterSelf/discord-music-bot?style=for-the-badge&logo=github&color=00ff9f)](https://github.com/DriifterSelf/discord-music-bot/releases)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/DriifterSelf/discord-music-bot/ci.yml?style=for-the-badge&logo=github-actions&logoColor=white&label=CI/CD)](https://github.com/DriifterSelf/discord-music-bot/actions)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-7289da?style=for-the-badge&logo=discord&logoColor=white)](https://discord.js.org/)
 [![Node.js](https://img.shields.io/badge/node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
