@@ -89,6 +89,209 @@ client.once('ready', () => {
 
 client.on('raw', d => manager.updateVoiceState(d));
 
+// Command Handlers
+const handlePlay = async (message, args) => {
+    if (!message.member.voice.channel) {
+        return message.reply('❌ Necesitas estar en un canal de voz primero');
+    }
+
+    if (!args.length) {
+        return message.reply('❌ Uso: `!play <canción/URL>`');
+    }
+
+    const query = args.join(' ');
+    console.log(`[BUSQUEDA] Usuario: ${message.author.tag} | Query: "${query}"`);
+
+    try {
+        // Crear o obtener player
+        const player = manager.create({
+            guild: message.guild.id,
+            voiceChannel: message.member.voice.channel.id,
+            textChannel: message.channel.id,
+            selfDeafen: true,
+            volume: 80
+        });
+
+        // Conectar si no está conectado
+        if (player.state !== 'CONNECTED') player.connect();
+
+        // Buscar canción
+        const searchQuery = /^https?:\/\//.test(query) ? query : `ytsearch:${query}`;
+        const res = await manager.search(searchQuery, message.author);
+
+        console.log(`[RESULTADO] Encontrado: ${res.tracks.length} pistas`);
+
+        if (res.loadType === 'LOAD_FAILED') {
+            return message.reply('❌ Error al cargar la canción');
+        }
+
+        if (res.loadType === 'NO_MATCHES') {
+            return message.reply(`❌ **No se encontró nada**\n\n**Búsqueda:** \`${query}\`\n**Intenta con:**\n- Nombre de la canción y artista\n- URL directa de YouTube\n- Buscar algo más específico`);
+        }
+
+        // Agregar a cola
+        if (res.loadType === 'PLAYLIST_LOADED') {
+            player.queue.add(res.tracks);
+            const embed = new EmbedBuilder()
+                .setColor('#00ff9f')
+                .setTitle('🎵 Playlist agregada a la cola')
+                .setDescription(`**${res.playlist.name}**\n**${res.tracks.length} canciones**`)
+                .setFooter({ text: `Solicitado por ${message.author.tag}` });
+
+            message.reply({ embeds: [embed] });
+        } else {
+            const track = res.tracks[0];
+            player.queue.add(track);
+
+            const embed = new EmbedBuilder()
+                .setColor('#00ff9f')
+                .setTitle('🎵 Agregado a la cola')
+                .setDescription(`**${track.title}**\n${track.author}`)
+                .setThumbnail(track.thumbnail)
+                .setFooter({ text: `Solicitado por ${message.author.tag}` });
+
+            message.reply({ embeds: [embed] });
+        }
+
+        // Reproducir si no está reproduciendo
+        if (!player.playing && !player.paused) player.play();
+
+    } catch (error) {
+        console.error('[ERROR REPRODUCCION]', error);
+        message.reply(`❌ **Error al reproducir**\n\n**Error:** \`${error.message}\``);
+    }
+};
+
+const handleSkip = (message) => {
+    const player = manager.get(message.guild.id);
+    if (!player || !player.queue.current) {
+        return message.reply('❌ No hay nada reproduciéndose');
+    }
+    player.stop();
+    message.reply('⏭️ Canción saltada');
+};
+
+const handleStop = (message) => {
+    const player = manager.get(message.guild.id);
+    if (!player) {
+        return message.reply('❌ No hay nada reproduciéndose');
+    }
+    player.queue.clear();
+    player.destroy();
+    message.reply('⏹️ Música detenida y cola limpiada');
+};
+
+const handlePause = (message) => {
+    const player = manager.get(message.guild.id);
+    if (!player || !player.queue.current) {
+        return message.reply('❌ No hay nada reproduciéndose');
+    }
+    player.pause(true);
+    message.reply('⏸️ Pausado');
+};
+
+const handleResume = (message) => {
+    const player = manager.get(message.guild.id);
+    if (!player || !player.queue.current) {
+        return message.reply('❌ No hay nada en la cola');
+    }
+    player.pause(false);
+    message.reply('▶️ Resumido');
+};
+
+const handleQueue = (message) => {
+    const player = manager.get(message.guild.id);
+    if (!player || !player.queue.current) {
+        return message.reply('❌ La cola está vacía');
+    }
+
+    const queue = player.queue;
+    const embed = new EmbedBuilder()
+        .setColor('#00ff9f')
+        .setTitle('📜 Cola de reproducción')
+        .setDescription(
+            `**Reproduciendo:**\n${queue.current.title}\n\n` +
+            `**Siguiente:**\n${queue.slice(0, 10).map((track, i) => `${i + 1}. ${track.title}`).join('\n') || 'Nada en cola'}`
+        );
+
+    message.reply({ embeds: [embed] });
+};
+
+const handleNp = (message) => {
+    const player = manager.get(message.guild.id);
+    if (!player || !player.queue.current) {
+        return message.reply('❌ No hay nada reproduciéndose');
+    }
+
+    const track = player.queue.current;
+    const position = player.position;
+    const duration = track.duration;
+    const bar = createProgressBar(position, duration);
+
+    const embed = new EmbedBuilder()
+        .setColor('#00ff9f')
+        .setTitle('🎵 Reproduciendo ahora')
+        .setDescription(`**${track.title}**\n${track.author}`)
+        .setThumbnail(track.thumbnail)
+        .addFields({ name: 'Progreso', value: bar })
+        .setFooter({ text: `Solicitado por ${track.requester.tag}` });
+
+    message.reply({ embeds: [embed] });
+};
+
+const handleVolume = (message, args) => {
+    const player = manager.get(message.guild.id);
+    if (!player) {
+        return message.reply('❌ No hay música reproduciéndose');
+    }
+
+    const volume = parseInt(args[0]);
+    if (isNaN(volume) || volume < 0 || volume > 100) {
+        return message.reply('❌ Uso: `!volume <0-100>`');
+    }
+
+    player.setVolume(volume);
+    message.reply(`🔊 Volumen establecido a ${volume}%`);
+};
+
+const handleHelp = (message) => {
+    const embed = new EmbedBuilder()
+        .setColor('#00ff9f')
+        .setTitle('🎵 Comandos de Música')
+        .setDescription('Lista de comandos disponibles:')
+        .addFields(
+            { name: '!play <canción/URL>', value: 'Reproduce una canción o playlist', inline: true },
+            { name: '!skip', value: 'Salta la canción actual', inline: true },
+            { name: '!stop', value: 'Detiene la música', inline: true },
+            { name: '!pause', value: 'Pausa la música', inline: true },
+            { name: '!resume', value: 'Reanuda la música', inline: true },
+            { name: '!queue', value: 'Muestra la cola', inline: true },
+            { name: '!np', value: 'Canción actual', inline: true },
+            { name: '!volume <0-100>', value: 'Ajusta el volumen', inline: true },
+        );
+
+    message.reply({ embeds: [embed] });
+};
+
+// Command Map
+const commands = new Map();
+commands.set('play', handlePlay);
+commands.set('p', handlePlay);
+commands.set('skip', handleSkip);
+commands.set('s', handleSkip);
+commands.set('stop', handleStop);
+commands.set('pause', handlePause);
+commands.set('resume', handleResume);
+commands.set('r', handleResume);
+commands.set('queue', handleQueue);
+commands.set('q', handleQueue);
+commands.set('np', handleNp);
+commands.set('nowplaying', handleNp);
+commands.set('volume', handleVolume);
+commands.set('v', handleVolume);
+commands.set('help', handleHelp);
+commands.set('h', handleHelp);
+
 // Comandos de música
 const argsRegex = / +/;
 client.on('messageCreate', async (message) => {
@@ -98,196 +301,9 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(1).trim().split(argsRegex);
     const command = args.shift().toLowerCase();
 
-    // !play <búsqueda o URL>
-    if (command === 'play' || command === 'p') {
-        if (!message.member.voice.channel) {
-            return message.reply('❌ Necesitas estar en un canal de voz primero');
-        }
-
-        if (!args.length) {
-            return message.reply('❌ Uso: `!play <canción/URL>`');
-        }
-
-        const query = args.join(' ');
-        console.log(`[BUSQUEDA] Usuario: ${message.author.tag} | Query: "${query}"`);
-
-        try {
-            // Crear o obtener player
-            const player = manager.create({
-                guild: message.guild.id,
-                voiceChannel: message.member.voice.channel.id,
-                textChannel: message.channel.id,
-                selfDeafen: true,
-                volume: 80
-            });
-
-            // Conectar si no está conectado
-            if (player.state !== 'CONNECTED') player.connect();
-
-            // Buscar canción
-            const searchQuery = /^https?:\/\//.test(query) ? query : `ytsearch:${query}`;
-            const res = await manager.search(searchQuery, message.author);
-
-            console.log(`[RESULTADO] Encontrado: ${res.tracks.length} pistas`);
-
-            if (res.loadType === 'LOAD_FAILED') {
-                return message.reply('❌ Error al cargar la canción');
-            }
-
-            if (res.loadType === 'NO_MATCHES') {
-                return message.reply(`❌ **No se encontró nada**\n\n**Búsqueda:** \`${query}\`\n**Intenta con:**\n- Nombre de la canción y artista\n- URL directa de YouTube\n- Buscar algo más específico`);
-            }
-
-            // Agregar a cola
-            if (res.loadType === 'PLAYLIST_LOADED') {
-                player.queue.add(res.tracks);
-                const embed = new EmbedBuilder()
-                    .setColor('#00ff9f')
-                    .setTitle('🎵 Playlist agregada a la cola')
-                    .setDescription(`**${res.playlist.name}**\n**${res.tracks.length} canciones**`)
-                    .setFooter({ text: `Solicitado por ${message.author.tag}` });
-
-                message.reply({ embeds: [embed] });
-            } else {
-                const track = res.tracks[0];
-                player.queue.add(track);
-
-                const embed = new EmbedBuilder()
-                    .setColor('#00ff9f')
-                    .setTitle('🎵 Agregado a la cola')
-                    .setDescription(`**${track.title}**\n${track.author}`)
-                    .setThumbnail(track.thumbnail)
-                    .setFooter({ text: `Solicitado por ${message.author.tag}` });
-
-                message.reply({ embeds: [embed] });
-            }
-
-            // Reproducir si no está reproduciendo
-            if (!player.playing && !player.paused) player.play();
-
-        } catch (error) {
-            console.error('[ERROR REPRODUCCION]', error);
-            message.reply(`❌ **Error al reproducir**\n\n**Error:** \`${error.message}\``);
-        }
-    }
-
-    // !skip
-    if (command === 'skip' || command === 's') {
-        const player = manager.get(message.guild.id);
-        if (!player || !player.queue.current) {
-            return message.reply('❌ No hay nada reproduciéndose');
-        }
-        player.stop();
-        message.reply('⏭️ Canción saltada');
-    }
-
-    // !stop
-    if (command === 'stop') {
-        const player = manager.get(message.guild.id);
-        if (!player) {
-            return message.reply('❌ No hay nada reproduciéndose');
-        }
-        player.queue.clear();
-        player.destroy();
-        message.reply('⏹️ Música detenida y cola limpiada');
-    }
-
-    // !pause
-    if (command === 'pause') {
-        const player = manager.get(message.guild.id);
-        if (!player || !player.queue.current) {
-            return message.reply('❌ No hay nada reproduciéndose');
-        }
-        player.pause(true);
-        message.reply('⏸️ Pausado');
-    }
-
-    // !resume
-    if (command === 'resume' || command === 'r') {
-        const player = manager.get(message.guild.id);
-        if (!player || !player.queue.current) {
-            return message.reply('❌ No hay nada en la cola');
-        }
-        player.pause(false);
-        message.reply('▶️ Resumido');
-    }
-
-    // !queue o !q
-    if (command === 'queue' || command === 'q') {
-        const player = manager.get(message.guild.id);
-        if (!player || !player.queue.current) {
-            return message.reply('❌ La cola está vacía');
-        }
-
-        const queue = player.queue;
-        const embed = new EmbedBuilder()
-            .setColor('#00ff9f')
-            .setTitle('📜 Cola de reproducción')
-            .setDescription(
-                `**Reproduciendo:**\n${queue.current.title}\n\n` +
-                `**Siguiente:**\n${queue.slice(0, 10).map((track, i) => `${i + 1}. ${track.title}`).join('\n') || 'Nada en cola'}`
-            );
-
-        message.reply({ embeds: [embed] });
-    }
-
-    // !np (now playing)
-    if (command === 'np' || command === 'nowplaying') {
-        const player = manager.get(message.guild.id);
-        if (!player || !player.queue.current) {
-            return message.reply('❌ No hay nada reproduciéndose');
-        }
-
-        const track = player.queue.current;
-        const position = player.position;
-        const duration = track.duration;
-        const bar = createProgressBar(position, duration);
-
-        const embed = new EmbedBuilder()
-            .setColor('#00ff9f')
-            .setTitle('🎵 Reproduciendo ahora')
-            .setDescription(`**${track.title}**\n${track.author}`)
-            .setThumbnail(track.thumbnail)
-            .addFields({ name: 'Progreso', value: bar })
-            .setFooter({ text: `Solicitado por ${track.requester.tag}` });
-
-        message.reply({ embeds: [embed] });
-    }
-
-    // !volume o !v
-    if (command === 'volume' || command === 'v') {
-        const player = manager.get(message.guild.id);
-        if (!player) {
-            return message.reply('❌ No hay música reproduciéndose');
-        }
-
-        const volume = parseInt(args[0]);
-        if (isNaN(volume) || volume < 0 || volume > 100) {
-            return message.reply('❌ Uso: `!volume <0-100>`');
-        }
-
-        player.setVolume(volume);
-        message.reply(`🔊 Volumen establecido a ${volume}%`);
-    }
-
-    // !help
-    if (command === 'help' || command === 'h') {
-        const embed = new EmbedBuilder()
-            .setColor('#00ff9f')
-            .setTitle('🎵 Comandos de Música')
-            .setDescription('Lista de comandos disponibles:')
-            .addFields(
-                { name: '!play <canción/URL>', value: 'Reproduce una canción o playlist', inline: true },
-                { name: '!skip', value: 'Salta la canción actual', inline: true },
-                { name: '!stop', value: 'Detiene la música', inline: true },
-                { name: '!pause', value: 'Pausa la música', inline: true },
-                { name: '!resume', value: 'Reanuda la música', inline: true },
-                { name: '!queue', value: 'Muestra la cola', inline: true },
-                { name: '!np', value: 'Canción actual', inline: true },
-                { name: '!volume <0-100>', value: 'Ajusta el volumen', inline: true },
-            );
-
-        message.reply({ embeds: [embed] });
+    const handler = commands.get(command);
+    if (handler) {
+        await handler(message, args);
     }
 });
 
