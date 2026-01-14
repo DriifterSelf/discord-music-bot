@@ -2,8 +2,14 @@ import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import { Manager } from 'erela.js';
 import dotenv from 'dotenv';
 import http from 'http';
+import pino from 'pino';
 
 dotenv.config();
+
+const logger = pino({
+    level: process.env.LOG_LEVEL || 'info'
+});
+
 
 const client = new Client({
     intents: [
@@ -30,11 +36,11 @@ const manager = new Manager({
 
 // Event listeners de Lavalink
 manager.on('nodeConnect', node => {
-    console.log(`🔗 Lavalink node conectado: ${node.options.host}`);
+    logger.info(`🔗 Lavalink node conectado: ${node.options.host}`);
 });
 
 manager.on('nodeError', (node, error) => {
-    console.error(`❌ Error en Lavalink node ${node.options.host}:`, error.message);
+    logger.error(`❌ Error en Lavalink node ${node.options.host}: ${error.message}`);
 });
 
 manager.on('trackStart', (player, track) => {
@@ -72,19 +78,19 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`🌐 Health check server running on port ${PORT}`);
+    logger.info(`🌐 Health check server running on port ${PORT}`);
 });
 
 client.once('ready', () => {
-    console.log(`✅ Bot conectado como ${client.user.tag}`);
-    console.log(`📊 Servidores: ${client.guilds.cache.size}`);
-    console.log(`👥 Usuarios: ${client.users.cache.size}`);
-    console.log(`🎵 Inicializando Lavalink manager...`);
+    logger.info(`✅ Bot conectado como ${client.user.tag}`);
+    logger.info(`📊 Servidores: ${client.guilds.cache.size}`);
+    logger.info(`👥 Usuarios: ${client.users.cache.size}`);
+    logger.info(`🎵 Inicializando Lavalink manager...`);
 
     manager.init(client.user.id);
     client.user.setActivity('!play <canción>', { type: 2 });
 
-    console.log(`💚 Bot completamente operacional`);
+    logger.info(`💚 Bot completamente operacional`);
 });
 
 client.on('raw', d => manager.updateVoiceState(d));
@@ -109,7 +115,7 @@ client.on('messageCreate', async (message) => {
         }
 
         const query = args.join(' ');
-        console.log(`[BUSQUEDA] Usuario: ${message.author.tag} | Query: "${query}"`);
+        logger.info(`[BUSQUEDA] Usuario: ${message.author.tag} | Query: "${query}"`);
 
         try {
             // Crear o obtener player
@@ -128,7 +134,7 @@ client.on('messageCreate', async (message) => {
             const searchQuery = /^https?:\/\//.test(query) ? query : `ytsearch:${query}`;
             const res = await manager.search(searchQuery, message.author);
 
-            console.log(`[RESULTADO] Encontrado: ${res.tracks.length} pistas`);
+            logger.info(`[RESULTADO] Encontrado: ${res.tracks.length} pistas`);
 
             if (res.loadType === 'LOAD_FAILED') {
                 return message.reply('❌ Error al cargar la canción');
@@ -166,7 +172,7 @@ client.on('messageCreate', async (message) => {
             if (!player.playing && !player.paused) player.play();
 
         } catch (error) {
-            console.error('[ERROR REPRODUCCION]', error);
+            logger.error({ err: error }, '[ERROR REPRODUCCION]');
             message.reply(`❌ **Error al reproducir**\n\n**Error:** \`${error.message}\``);
         }
     }
