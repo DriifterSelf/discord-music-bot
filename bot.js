@@ -90,11 +90,12 @@ client.once('ready', () => {
 client.on('raw', d => manager.updateVoiceState(d));
 
 // Comandos de música
+const argsRegex = / +/;
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     if (!message.content.startsWith('!')) return;
 
-    const args = message.content.slice(1).trim().split(/ +/);
+    const args = message.content.slice(1).trim().split(argsRegex);
     const command = args.shift().toLowerCase();
 
     // !play <búsqueda o URL>
