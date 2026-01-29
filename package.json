@@ -30,7 +30,7 @@
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.1",
     "erela.js": "^2.4.0",
-    "libsodium-wrappers": "^0.8.0",
+    "libsodium-wrappers": "^0.8.2",
     "mediaplex": "^0.0.9",
     "sodium-native": "^5.0.10"
   }
